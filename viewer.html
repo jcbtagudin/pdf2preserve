@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PDF2Preserve - Side-by-Side Viewer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      height: 100vh;
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+      position: relative;
+    }
+    
+    .header h1 {
+      font-size: 24px;
+      margin: 0;
+    }
+    
+    .header-controls {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+    
+    .btn {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    
+    .btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    .main-container {
+      display: flex;
+      height: calc(100vh - 70px);
+      position: relative;
+    }
+    
+    .left-panel, .right-panel {
+      flex: 1;
+      background: white;
+      border: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .panel-header {
+      background: #f8f9fa;
+      padding: 12px 20px;
+      border-bottom: 1px solid #ddd;
+      font-weight: bold;
+      color: #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .panel-content {
+      flex: 1;
+      overflow: auto;
+      position: relative;
+    }
+    
+    /* PDF Viewer Styles */
+    .pdf-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      background: #525659;
+    }
+    
+    .pdf-controls {
+      margin-bottom: 15px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: rgba(255,255,255,0.9);
+      padding: 8px 15px;
+      border-radius: 5px;
+    }
+    
+    .pdf-controls button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    
+    .pdf-controls button:hover {
+      background: #0056b3;
+    }
+    
+    .pdf-controls button:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+    
+    .pdf-canvas {
+      border: 1px solid #ccc;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      background: white;
+      max-width: 100%;
+      max-height: calc(100% - 60px);
+    }
+    
+    /* Text Viewer Styles */
+    .text-container {
+      padding: 20px;
+      height: 100%;
+      overflow-y: auto;
+    }
+    
+    .format-selector {
+      margin-bottom: 15px;
+    }
+    
+    .format-selector select {
+      padding: 5px 10px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      background: white;
+      font-size: 14px;
+    }
+    
+    .text-content {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #333;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      border: 1px solid #e0e0e0;
+      padding: 15px;
+      background: #fafafa;
+      border-radius: 5px;
+      min-height: 400px;
+    }
+    
+    .text-content.html-preview {
+      font-family: Arial, sans-serif;
+      white-space: normal;
+      background: white;
+    }
+    
+    /* Splitter */
+    .splitter {
+      width: 8px;
+      background: #e0e0e0;
+      cursor: col-resize;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .splitter:hover {
+      background: #ccc;
+    }
+    
+    .splitter::after {
+      content: '⋮⋮⋮';
+      color: #666;
+      font-size: 16px;
+      line-height: 1;
+    }
+    
+    /* Upload Area */
+    .upload-area {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      color: #666;
+      text-align: center;
+      padding: 40px;
+    }
+    
+    .upload-area input[type="file"] {
+      margin: 20px 0;
+      padding: 10px;
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      background: white;
+      width: 100%;
+      max-width: 300px;
+    }
+    
+    .upload-area input[type="file"]:hover {
+      border-color: #007bff;
+    }
+    
+    /* Loading spinner */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #007bff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .main-container {
+        flex-direction: column;
+      }
+      
+      .splitter {
+        width: 100%;
+        height: 8px;
+        cursor: row-resize;
+      }
+      
+      .header-controls {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      
+      .btn {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🧠 PDF2Preserve - Side-by-Side Viewer</h1>
+    <div class="header-controls">
+      <select id="layoutMode" class="btn" style="background: rgba(255,255,255,0.2); color: white;">
+        <option value="preserve">🎯 Preserve Layout</option>
+        <option value="clean">🧹 Clean Text</option>
+      </select>
+      <a href="/batch" class="btn">🔁 Batch</a>
+      <a href="/" class="btn">← Back to Home</a>
+    </div>
+  </div>
+  
+  <div class="main-container">
+    <div class="left-panel">
+      <div class="panel-header">
+        📄 Original PDF
+        <span id="pageInfo" style="font-size: 12px; color: #666;"></span>
+      </div>
+      <div class="panel-content">
+        <div id="uploadArea" class="upload-area">
+          <h3>📁 Upload PDF to Preview</h3>
+          <p>Select a PDF file to view it alongside extracted text</p>
+          <input type="file" id="pdfFile" accept="application/pdf" />
+          <p style="font-size: 12px; margin-top: 10px;">Perfect for legal teams, editors, and translators</p>
+        </div>
+        <div id="pdfViewer" class="pdf-container" style="display: none;">
+          <div class="pdf-controls">
+            <button id="prevPage">← Prev</button>
+            <span id="pageNum">1</span> / <span id="pageCount">1</span>
+            <button id="nextPage">Next →</button>
+            <button id="zoomOut">Zoom -</button>
+            <span id="zoomLevel">100%</span>
+            <button id="zoomIn">Zoom +</button>
+          </div>
+          <canvas id="pdfCanvas" class="pdf-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <div class="splitter"></div>
+    
+    <div class="right-panel">
+      <div class="panel-header">
+        📝 Extracted Text
+        <div class="format-selector">
+          <select id="textFormat">
+            <option value="txt">Plain Text</option>
+            <option value="html">HTML Preview</option>
+            <option value="markdown">Markdown</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-content">
+        <div class="text-container">
+          <div id="loadingText" class="loading">
+            <div class="spinner"></div>
+            <p>Extracting text from PDF...</p>
+          </div>
+          <div id="textContent" class="text-content">
+            Select a PDF file to see the extracted text appear here in real-time.
+            
+            ✨ Features:
+            • Smart text structuring
+            • Heading detection
+            • List formatting
+            • Table extraction
+            • Multiple export formats
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // PDF.js setup
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    
+    let currentPdf = null;
+    let currentPage = 1;
+    let totalPages = 1;
+    let currentScale = 1.0;
+    let currentFile = null;
+    
+    // DOM elements
+    const pdfFileInput = document.getElementById('pdfFile');
+    const uploadArea = document.getElementById('uploadArea');
+    const pdfViewer = document.getElementById('pdfViewer');
+    const canvas = document.getElementById('pdfCanvas');
+    const ctx = canvas.getContext('2d');
+    const pageNumSpan = document.getElementById('pageNum');
+    const pageCountSpan = document.getElementById('pageCount');
+    const pageInfoSpan = document.getElementById('pageInfo');
+    const prevPageBtn = document.getElementById('prevPage');
+    const nextPageBtn = document.getElementById('nextPage');
+    const zoomInBtn = document.getElementById('zoomIn');
+    const zoomOutBtn = document.getElementById('zoomOut');
+    const zoomLevelSpan = document.getElementById('zoomLevel');
+    const textContent = document.getElementById('textContent');
+    const textFormat = document.getElementById('textFormat');
+    const layoutMode = document.getElementById('layoutMode');
+    const loadingText = document.getElementById('loadingText');
+    
+    // Event listeners
+    pdfFileInput.addEventListener('change', handleFileSelect);
+    prevPageBtn.addEventListener('click', () => showPage(currentPage - 1));
+    nextPageBtn.addEventListener('click', () => showPage(currentPage + 1));
+    zoomInBtn.addEventListener('click', () => setZoom(currentScale + 0.2));
+    zoomOutBtn.addEventListener('click', () => setZoom(currentScale - 0.2));
+    textFormat.addEventListener('change', updateTextDisplay);
+    layoutMode.addEventListener('change', extractText);
+    
+    // File selection handler
+    async function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file || file.type !== 'application/pdf') {
+        alert('Please select a valid PDF file');
+        return;
+      }
+      
+      currentFile = file;
+      await loadPdf(file);
+      await extractText();
+    }
+    
+    // Load PDF with PDF.js
+    async function loadPdf(file) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        currentPdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        totalPages = currentPdf.numPages;
+        
+        // Update UI
+        uploadArea.style.display = 'none';
+        pdfViewer.style.display = 'flex';
+        pageCountSpan.textContent = totalPages;
+        pageInfoSpan.textContent = `${totalPages} pages`;
+        
+        // Show first page
+        await showPage(1);
+      } catch (error) {
+        console.error('Error loading PDF:', error);
+        alert('Error loading PDF file');
+      }
+    }
+    
+    // Show specific page
+    async function showPage(pageNum) {
+      if (!currentPdf || pageNum < 1 || pageNum > totalPages) return;
+      
+      try {
+        currentPage = pageNum;
+        pageNumSpan.textContent = pageNum;
+        
+        const page = await currentPdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: currentScale });
+        
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        
+        await page.render({
+          canvasContext: ctx,
+          viewport: viewport
+        }).promise;
+        
+        // Update button states
+        prevPageBtn.disabled = pageNum <= 1;
+        nextPageBtn.disabled = pageNum >= totalPages;
+        
+      } catch (error) {
+        console.error('Error rendering page:', error);
+      }
+    }
+    
+    // Set zoom level
+    async function setZoom(scale) {
+      if (scale < 0.5 || scale > 3.0) return;
+      
+      currentScale = scale;
+      zoomLevelSpan.textContent = Math.round(scale * 100) + '%';
+      
+      if (currentPdf) {
+        await showPage(currentPage);
+      }
+    }
+    
+    // Extract text from PDF
+    async function extractText() {
+      if (!currentFile) return;
+      
+      try {
+        loadingText.style.display = 'block';
+        textContent.style.display = 'none';
+        
+        const formData = new FormData();
+        formData.append('pdf_file', currentFile);
+        formData.append('layout_mode', layoutMode.value);
+        
+        const response = await fetch('/extract-text', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to extract text');
+        }
+        
+        const data = await response.json();
+        
+        // Store extracted text in different formats
+        window.extractedText = {
+          txt: data.txt,
+          html: data.html,
+          markdown: data.markdown
+        };
+        
+        loadingText.style.display = 'none';
+        textContent.style.display = 'block';
+        updateTextDisplay();
+        
+      } catch (error) {
+        console.error('Error extracting text:', error);
+        loadingText.style.display = 'none';
+        textContent.style.display = 'block';
+        textContent.textContent = 'Error extracting text from PDF. Please try again.';
+      }
+    }
+    
+    // Update text display based on format selection
+    function updateTextDisplay() {
+      if (!window.extractedText) return;
+      
+      const format = textFormat.value;
+      const text = window.extractedText[format];
+      
+      textContent.className = 'text-content';
+      
+      if (format === 'html') {
+        textContent.className += ' html-preview';
+        textContent.innerHTML = text;
+      } else {
+        textContent.textContent = text;
+      }
+    }
+    
+    // Splitter functionality
+    let isResizing = false;
+    
+    document.querySelector('.splitter').addEventListener('mousedown', (e) => {
+      isResizing = true;
+      document.addEventListener('mousemove', handleResize);
+      document.addEventListener('mouseup', stopResize);
+    });
+    
+    function handleResize(e) {
+      if (!isResizing) return;
+      
+      const container = document.querySelector('.main-container');
+      const containerRect = container.getBoundingClientRect();
+      const percentage = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+      
+      if (percentage > 20 && percentage < 80) {
+        document.querySelector('.left-panel').style.flex = `0 0 ${percentage}%`;
+        document.querySelector('.right-panel').style.flex = `0 0 ${100 - percentage}%`;
+      }
+    }
+    
+    function stopResize() {
+      isResizing = false;
+      document.removeEventListener('mousemove', handleResize);
+      document.removeEventListener('mouseup', stopResize);
+    }
+  </script>
+</body>
+</html>

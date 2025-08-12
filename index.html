@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PDF2Preserve</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .upload-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .file-input-container {
+      border: 2px dashed #ccc;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px;
+      transition: border-color 0.3s;
+    }
+    .file-input-container:hover {
+      border-color: #007bff;
+    }
+    input[type="file"] {
+      margin: 10px 0;
+    }
+    .format-selection {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .format-option {
+      display: flex;
+      align-items: center;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .format-option:hover {
+      border-color: #007bff;
+      background-color: #f8f9fa;
+    }
+    .format-option input[type="radio"] {
+      margin-right: 10px;
+    }
+    .format-info {
+      flex: 1;
+    }
+    .format-name {
+      font-weight: bold;
+      color: #333;
+    }
+    .format-desc {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 5px;
+    }
+    .submit-btn {
+      background-color: #007bff;
+      color: white;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .submit-btn:hover {
+      background-color: #0056b3;
+    }
+    
+    .viewer-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: bold;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+      transition: all 0.3s;
+    }
+    
+    .viewer-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+      color: white;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 PDF2Preserve</h1>
+    <p style="text-align: center; color: #666; margin-bottom: 20px;">
+      Convert your PDFs to various formats while preserving formatting and structure
+    </p>
+    
+    <!-- Export Limits & Auth Section -->
+    <div id="authSection" style="background: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+      <div id="exportStatus" style="display: flex; align-items: center; gap: 15px;">
+        <div style="text-align: center;">
+          <div id="exportCount" style="font-size: 24px; font-weight: bold; color: #333;">-</div>
+          <div style="font-size: 12px; color: #666;">exports remaining</div>
+        </div>
+        <div id="userTypeIndicator" style="padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold;">
+          Guest User
+        </div>
+      </div>
+      
+      <div id="authControls" style="display: flex; gap: 10px; align-items: center;">
+        <div id="guestControls">
+          <button onclick="showLoginModal()" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer;">
+            🔑 Sign In for 3x More
+          </button>
+        </div>
+        
+        <div id="userControls" style="display: none;">
+          <span id="welcomeText" style="color: #666; margin-right: 10px;"></span>
+          <button onclick="logout()" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 15px; cursor: pointer;">
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div style="text-align: center; margin-bottom: 20px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+      <a href="/viewer" class="viewer-btn">
+        🧠 Side-by-Side Viewer
+      </a>
+      <a href="/batch" class="viewer-btn" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
+        🔁 Batch Converter
+      </a>
+    </div>
+    <p style="text-align: center; font-size: 12px; color: #888; margin-bottom: 20px;">Perfect for legal teams, editors, and translators</p>
+    
+    <form action="/upload" method="post" enctype="multipart/form-data" class="upload-form">
+      <div class="file-input-container">
+        <p>📄 Select your PDF file</p>
+        <input type="file" name="pdf_file" accept="application/pdf" required />
+      </div>
+      
+      <div class="format-selection">
+        <label class="format-option">
+          <input type="radio" name="export_format" value="txt" checked />
+          <div class="format-info">
+            <div class="format-name">Plain Text (.txt)</div>
+            <div class="format-desc">Simple text extraction</div>
+          </div>
+        </label>
+        
+        <label class="format-option">
+          <input type="radio" name="export_format" value="html" />
+          <div class="format-info">
+            <div class="format-name">HTML (.html)</div>
+            <div class="format-desc">Preserves bold, italic, headings</div>
+          </div>
+        </label>
+        
+        <label class="format-option">
+          <input type="radio" name="export_format" value="markdown" />
+          <div class="format-info">
+            <div class="format-name">Markdown (.md)</div>
+            <div class="format-desc">GitHub/Notion compatible</div>
+          </div>
+        </label>
+        
+        <label class="format-option">
+          <input type="radio" name="export_format" value="docx" />
+          <div class="format-info">
+            <div class="format-name">Word Document (.docx)</div>
+            <div class="format-desc">Full formatting preservation</div>
+          </div>
+        </label>
+      </div>
+      
+      <div style="margin: 20px 0; padding: 20px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+        <h3 style="margin: 0 0 15px 0; color: #333; font-size: 18px;">📐 Smart Text Structuring</h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+          <label class="format-option" style="margin: 0;">
+            <input type="radio" name="layout_mode" value="preserve" checked />
+            <div class="format-info">
+              <div class="format-name">🎯 Preserve Visual Layout</div>
+              <div class="format-desc">Smart detection of headings, paragraphs, lists, tables</div>
+            </div>
+          </label>
+          
+          <label class="format-option" style="margin: 0;">
+            <input type="radio" name="layout_mode" value="clean" />
+            <div class="format-info">
+              <div class="format-name">🧹 Clean Text Only</div>
+              <div class="format-desc">Simple continuous text without structure</div>
+            </div>
+          </label>
+        </div>
+        
+        <div style="font-size: 14px; color: #666;">
+          <strong>Smart Detection Features:</strong>
+          <ul style="margin: 5px 0 0 20px; padding: 0;">
+            <li>Headings based on font size & weight</li>
+            <li>Paragraphs with proper spacing</li>
+            <li>Bullet points & numbered lists</li>
+            <li>Tables with headers (when detectable)</li>
+          </ul>
+        </div>
+      </div>
+      
+      <button type="submit" class="submit-btn">🚀 Convert & Download</button>
+    </form>
+  </div>
+
+  <!-- Login Modal -->
+  <div id="loginModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; padding: 40px; border-radius: 15px; max-width: 400px; text-align: center;">
+      <h2 style="color: #333; margin-bottom: 20px;">🔑 Sign In</h2>
+      <p style="color: #666; margin-bottom: 30px;">Get 3x more exports per day (30 vs 10)</p>
+      
+      <form id="loginForm" onsubmit="login(event)">
+        <input type="text" id="username" placeholder="Username" required 
+               style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px;">
+        <input type="password" id="password" placeholder="Password" required
+               style="width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px;">
+        
+        <div style="margin: 30px 0;">
+          <button type="submit" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 12px 30px; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; margin-right: 15px;">
+            Sign In
+          </button>
+          <button type="button" onclick="closeLoginModal()" style="background: #6c757d; color: white; padding: 12px 20px; border: none; border-radius: 25px; cursor: pointer;">
+            Cancel
+          </button>
+        </div>
+        
+        <p style="font-size: 12px; color: #999; margin-top: 15px;">
+          Demo: Use any username/password combination to sign in
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let userStatus = null;
+
+    // Load user status on page load
+    async function loadUserStatus() {
+      try {
+        const response = await fetch('/status');
+        userStatus = await response.json();
+        updateUI();
+      } catch (error) {
+        console.error('Error loading user status:', error);
+      }
+    }
+
+    function updateUI() {
+      if (!userStatus) return;
+
+      const exportCount = document.getElementById('exportCount');
+      const userTypeIndicator = document.getElementById('userTypeIndicator');
+      const guestControls = document.getElementById('guestControls');
+      const userControls = document.getElementById('userControls');
+      const welcomeText = document.getElementById('welcomeText');
+
+      // Update export count
+      exportCount.textContent = userStatus.remaining_exports;
+      
+      // Update export count color based on remaining
+      if (userStatus.remaining_exports <= 0) {
+        exportCount.style.color = '#dc3545';
+      } else if (userStatus.remaining_exports <= 3) {
+        exportCount.style.color = '#ffc107';
+      } else {
+        exportCount.style.color = '#28a745';
+      }
+
+      // Update user type indicator
+      userTypeIndicator.textContent = userStatus.user_type;
+      if (userStatus.logged_in) {
+        userTypeIndicator.style.background = 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)';
+        userTypeIndicator.style.color = '#8B4513';
+      } else {
+        userTypeIndicator.style.background = 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
+        userTypeIndicator.style.color = 'white';
+      }
+
+      // Show/hide auth controls
+      if (userStatus.logged_in) {
+        guestControls.style.display = 'none';
+        userControls.style.display = 'flex';
+        welcomeText.textContent = `Welcome, ${userStatus.username}!`;
+      } else {
+        guestControls.style.display = 'block';
+        userControls.style.display = 'none';
+      }
+    }
+
+    async function login(event) {
+      event.preventDefault();
+      
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ username, password })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          closeLoginModal();
+          await loadUserStatus();
+          showMessage(`Welcome ${result.username}! You now have ${result.daily_limit} exports per day.`, 'success');
+        } else {
+          showMessage(result.message, 'error');
+        }
+      } catch (error) {
+        showMessage('Login failed. Please try again.', 'error');
+      }
+    }
+
+    async function logout() {
+      try {
+        const response = await fetch('/logout', {
+          method: 'POST'
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          await loadUserStatus();
+          showMessage(`Signed out successfully. You now have ${result.daily_limit} exports per day.`, 'info');
+        }
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+    }
+
+    function showLoginModal() {
+      document.getElementById('loginModal').style.display = 'flex';
+    }
+
+    function closeLoginModal() {
+      document.getElementById('loginModal').style.display = 'none';
+      document.getElementById('loginForm').reset();
+    }
+
+    function showMessage(message, type = 'info') {
+      const colors = {
+        success: '#28a745',
+        error: '#dc3545',
+        info: '#007bff'
+      };
+
+      const messageDiv = document.createElement('div');
+      messageDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${colors[type]};
+        color: white;
+        padding: 15px 20px;
+        border-radius: 5px;
+        z-index: 1001;
+        max-width: 300px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      `;
+      messageDiv.textContent = message;
+      
+      document.body.appendChild(messageDiv);
+      
+      setTimeout(() => {
+        messageDiv.remove();
+      }, 4000);
+    }
+
+    // Handle form submission with export limit checking
+    document.querySelector('form').addEventListener('submit', async function(e) {
+      if (!userStatus || userStatus.remaining_exports <= 0) {
+        e.preventDefault();
+        if (userStatus.logged_in) {
+          showMessage('Daily export limit reached. Try again tomorrow.', 'error');
+        } else {
+          showMessage(`You've reached your ${userStatus.daily_limit} export limit. Sign in to get 3x more exports per day!`, 'error');
+          showLoginModal();
+        }
+      }
+    });
+
+    // Initialize
+    loadUserStatus();
+  </script>
+</body>
+</html>
