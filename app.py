@@ -13,7 +13,7 @@ from docx.shared import Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 
 app = Flask(__name__)
-app.secret_key = 'pdf2preserve_secret_key_change_in_production'
+app.secret_key = os.environ.get('SECRET_KEY', 'pdf2preserve_secret_key_change_in_production')
 UPLOAD_FOLDER = "/tmp/uploads" if os.environ.get("RAILWAY_ENVIRONMENT") else "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
