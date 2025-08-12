@@ -1,4 +1,5 @@
-flask
-PyMuPDF
-python-docx
-markdown
+flask==2.3.3
+PyMuPDF==1.23.9
+python-docx==0.8.11
+markdown==3.5.1
+gunicorn==21.2.0

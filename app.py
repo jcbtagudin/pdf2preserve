@@ -14,7 +14,7 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 
 app = Flask(__name__)
 app.secret_key = 'pdf2preserve_secret_key_change_in_production'
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = "/tmp/uploads" if os.environ.get("RAILWAY_ENVIRONMENT") else "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Export tracking storage (in production, use a database)
@@ -1214,4 +1214,6 @@ def upload_pdf():
     return send_file(output_path, as_attachment=True)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # For Railway deployment - use environment PORT or default to 5000
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
